@@ -79,7 +79,7 @@ begin # * Plot msd
         msd(S[:, 1:2], τs)
     end
     D = cat(_D...; dims = Dim{:subject}(0:(length(_D) - 1)))
-    D = set(D, Ti => τs * step(Ss[1]))
+    D = set(D, 𝑡 => τs * step(Ss[1]))
     dtau = 1e-3 .. 1e-1
     m = map(eachslice(D, dims = 2)) do X
         X = X[Ti = dtau]

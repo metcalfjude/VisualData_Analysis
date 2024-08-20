@@ -20,13 +20,13 @@ end
 begin # * Distribution
     fix = progressmap(gaze; parallel = true) do x
         d = map(x) do y
-            y = y[Ti(0 .. DimensionalData.metadata(y)["fix_off"])]
+            y = y[𝑡(0 .. DimensionalData.metadata(y)["fix_off"])]
         end
     end
 end
 begin
     pdfs = map(fix) do x
-        x = cat(x...; dims = Ti())
+        x = cat(x...; dims = 𝑡())
         x = filter(!isnan, x)
         k = kde(filter(!isnan, x); boundary = (-25, 25))
         ToolsArray(k.density, (Dim{:position}(k.x),))

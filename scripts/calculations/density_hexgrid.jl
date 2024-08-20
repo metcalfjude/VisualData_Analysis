@@ -20,7 +20,7 @@ begin # * Fixation period
     xs = map(files) do f
         x = DrWatson.load(f, "gaze")[:, 2, 1] # Left eye, x position
         T = first(times(x)) .. DimensionalData.metadata(x)["fix_off"]
-        x[Ti(T)]
+        x[𝑡(T)]
     end
     x = vcat(parent.(xs)...)
     filter!(!isnan, x)

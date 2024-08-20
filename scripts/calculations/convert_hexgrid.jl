@@ -109,19 +109,19 @@ jldopen(filename, "w") do file
         species = x.species
         isCenTar = x.isCenTar
 
-        metadata = @strdict fix_off array_on img_on tar_on reward_time subject_id cond_id err isCenTar uid saccade_onsets saccade_offsets species
-        metadata = DimensionalData.Metadata(metadata)
+        md = @strdict fix_off array_on img_on tar_on reward_time subject_id cond_id err isCenTar uid saccade_onsets saccade_offsets species
+        md = DimensionalData.Metadata(md)
         X = x.eyes'
         X = reshape(X, :, 2, 2)
-        X = ToolsArray(X, (Ti(ts), Var([:x, :y]), Dim{:Eye}([:left, :right])); metadata,
+        X = ToolsArray(X, (𝑡(ts), Var([:x, :y]), Dim{:Eye}([:left, :right])); metadata,
                        name = "Gaze")
 
-        gaze = rectify(X; dims = Ti)
-        m = metadata["saccade_onsets"]
-        metadata["saccade_onsets"] = m isa Number && isnan(m) ? NaN : times(gaze)[m]
-        m = metadata["saccade_offsets"]
-        metadata["saccade_offsets"] = m isa Number && isnan(m) ? NaN : times(gaze)[m]
-        gaze = rebuild(gaze; metadata = metadata)
+        gaze = rectify(X; dims = 𝑡)
+        m = md["saccade_onsets"]
+        md["saccade_onsets"] = m isa Number && isnan(m) ? NaN : times(gaze)[m]
+        m = md["saccade_offsets"]
+        md["saccade_offsets"] = m isa Number && isnan(m) ? NaN : times(gaze)[m]
+        gaze = rebuild(gaze; metadata = md)
 
         name = "species=$species/subject_id=$subject_id/uid=$uid"
         push!(gaze_file, name)
@@ -129,8 +129,8 @@ jldopen(filename, "w") do file
     end
     df.gaze_file = gaze_file
     select!(df, Not(:eyes))
-    select!(df, Not(:sac_onsets))
-    select!(df, Not(:sac_offsets))
+    # select!(df, Not(:sac_onsets))
+    # select!(df, Not(:sac_offsets))
     select!(df, Not(:saccadePrediction))
     select!(df, Not(:sac_binary_onset))
     select!(df, Not(:sac_binary_offset))
