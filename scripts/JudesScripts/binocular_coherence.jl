@@ -18,11 +18,11 @@ index = file["index"]
 HEXCONDS = 1:12
 
 THRESHOLD = 1.00                # window
-BUFFER = 0.015                  # safety buffer to avoid capturing the final acceleration
+BUFFER = 0.001                  # safety buffer to avoid capturing the final acceleration
 
 fs::Int = 1000                  # Sampling frequency
 nfft::Int = 1024                # nfft >= n_samples = 1000
-nw::Float64 = 8.0               # time-halfbandwidth product
+nw::Float64 = 2.5               # time-halfbandwidth product
 
 ntapers = floor(Int, 2 * nw) - 1 
 
@@ -62,7 +62,7 @@ results = map(gaze) do condition_trials
                     l_eye = trial[time_range, Dim{:Eye}(At(:left))]
                     
                     # Use req_samples instead of a hardcoded 200
-                    if !any(isnan, r_eye) && !any(isnan, l_eye) && size(r_eye, 1) >= req_samples
+                    if !any(isnan, r_eye) && !any(isnan, l_eye) && size(r_eye, 1) == req_samples
                         push!(fixations, (right=r_eye, left=l_eye, status=:valid))
                     else
                         push!(fixations, (right=nothing, left=nothing, status=:rejected_nan_or_short))
@@ -97,6 +97,17 @@ println("Rejected $(round(rejected_count/total_count * 100, digits=2))% of trial
 all_spectra_x = zeros(ComplexF64, 2, 2, n_freq, n_trials)
 all_spectra_y = zeros(ComplexF64, 2, 2, n_freq, n_trials)
 
+n_time = Int(THRESHOLD * fs)
+
+# Preallocate
+x_trials = zeros(Float64, n_time, 2, n_trials)
+y_trials = zeros(Float64, n_time, 2, n_trials)
+
+fc = 5              # cutoff frequency of 10Hz
+order = 4           # Butterworth order
+
+hp_filter = digitalfilter(Highpass(fc, fs=fs), Butterworth(order))
+
 Threads.@threads for i in 1:n_trials
     trial = valid_trials[i]
 
@@ -107,12 +118,23 @@ Threads.@threads for i in 1:n_trials
     left_y  = Float64.(trial.left[:, 2])
     right_y = Float64.(trial.right[:, 2])
 
-    # Offsetting and polynomial detrending (n=4 good for the ≈200ms shifts in drift direction)
-    # Not very important for the analysis. drop n to 3 or use remove_offset at any point
-    left_x  = polynomial_detrend(left_x, 4)
-    right_x = polynomial_detrend(right_x, 4)
-    left_y  = polynomial_detrend(left_y, 4)
-    right_y = polynomial_detrend(right_y, 4)
+    # Offsetting and weak high-pass filtering
+    # Also implemented polynomial fitting, not as helpful
+    left_x  = remove_offset(left_x)
+    right_x = remove_offset(right_x)
+    left_y  = remove_offset(left_y)
+    right_y = remove_offset(right_y)
+
+    # # High-Pass filtering directly
+    # left_x  = filtfilt(hp_filter, left_x)
+    # right_x = filtfilt(hp_filter, right_x)
+    # left_y  = filtfilt(hp_filter, left_y)
+    # right_y = filtfilt(hp_filter, right_y)
+
+    x_trials[:,1,i] = left_x
+    x_trials[:,2,i] = right_x
+    y_trials[:,1,i] = left_y
+    y_trials[:,2,i] = right_y
 
     # matrix formatting for DSP.jl
     x_mat_raw = Matrix{Float64}(hcat(left_x, right_x)')
@@ -237,7 +259,7 @@ sample_trial = valid_trials[test_idx]
 raw_trace = Float64.(sample_trial.left[:, 1])
 
 # Apply detrend function
-detrended_trace = polynomial_detrend(raw_trace, 4)
+detrended_trace = filtfilt(hp_filter, raw_trace)
 
 # Create a time vector in milliseconds for the X-axis
 time_ms = (1:length(raw_trace)) 
@@ -260,6 +282,7 @@ p_detrend = Plots.plot(time_ms, detrended_trace,
     label="Detrended", 
     color=:purple, 
     lw=2,
+    # xlims=(400,600),
     legend=:topleft)
 
 # Combine them into a 2-panel layout
@@ -295,6 +318,12 @@ h5open(datadir("processed", "total_coherences.h5"), "w") do h5_file
     h5_file["y_coherence"] = coherence_y
     h5_file["x_boot_coherence"] = x_boot_coherence
     h5_file["y_boot_coherence"] = y_boot_coherence
+end
+
+h5open(datadir("processed", "trials.h5"), "w") do h5_trials_file
+    h5_trials_file["x_trials"] = x_trials
+    h5_trials_file["y_trials"] = y_trials
+    h5_trials_file["fs"] = fs
 end
 
 close(file)
