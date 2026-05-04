@@ -28,7 +28,7 @@ TRIALS_PATH = "data/processed/trials.h5"
 
 FS = 1000  # Hz
 
-WAVELET = "cmor1.0-0.5"
+WAVELET = "cmor1.0-1.0"
 
 FREQS_HZ = np.logspace(0, 2.5, 100)  # 1–300 Hz approx
 
@@ -177,7 +177,7 @@ def analyse_tremor_single_trial(x_trials, trial_idx=0, fs=1000):
     right_vel = np.gradient(right_pos) * fs
 
     # isolate gamma
-    freqs_tremor = np.logspace(np.log10(1), np.log10(200), 80)
+    freqs_tremor = np.logspace(np.log10(1), np.log10(1000), 80)
 
     # wavelet transform
     Wl = cwt(left_vel, freqs_tremor, fs, WAVELET)
@@ -299,10 +299,10 @@ if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     print("Running single-trial analysis...")
-    analyse_single_trial(x_trials, trial_idx=0)
+    analyse_single_trial(x_trials, trial_idx=100)
 
     print("Running single-trial velocity analysis...")
-    analyse_tremor_single_trial(x_trials, trial_idx=0)
+    analyse_tremor_single_trial(x_trials, trial_idx=100)
 
     # print("Running population analysis...")
     # population_spectrum(x_trials)
