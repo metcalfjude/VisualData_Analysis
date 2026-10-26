@@ -1,5 +1,8 @@
 module FractionalSaccades
 
+using DrWatson
+@quickactivate "FractionalSaccades"
+
 if !haskey(ENV, "DRWATSON_STOREPATCH")
     ENV["DRWATSON_STOREPATCH"] = "true"
 end
@@ -80,5 +83,7 @@ function gradient(v::AbstractVector, dx::Real=1.0)
 
     return grad
 end
+
+include(srcdir("plotting_default.jl"))
 
 end

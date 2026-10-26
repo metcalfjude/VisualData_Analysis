@@ -8,9 +8,10 @@ using DimensionalData
 using JLD2
 using KernelDensity
 using Plots
-using Statistics # Required for mean() and std()
+using Statistics
+using Printf
 
-include("../load_data.jl")
+include(scriptsdir("calculations/load_data.jl"))
 
 default(
     titlefontsize = 16,
@@ -24,8 +25,22 @@ default(
     legend = :topright,
 )
 
-function plot_fixation_psd(df::DataFrame; fs=1000, eye=:right, filter_freq = 150)
+function plot_fixation_psd(
+    df::DataFrame;
+    fs=1000,
+    eye=:right,
+    filter_freq=250,
+    welch_window=256,
+    welch_overlap=64,
+    nfft=256,
+)
     lpf = digitalfilter(Lowpass(filter_freq, fs=fs), Butterworth(4))  
+
+    eye in (:right, :left) || throw(ArgumentError("eye must be :right or :left"))
+    0 <= welch_overlap < welch_window ||
+        throw(ArgumentError("welch_overlap must be nonnegative and less than welch_window"))
+    nfft >= welch_window ||
+        throw(ArgumentError("nfft must be at least welch_window"))
 
     # 1. Filter for valid fixations only
     valid_fix = filter(row -> row.status == :valid, df)
@@ -34,22 +49,26 @@ function plot_fixation_psd(df::DataFrame; fs=1000, eye=:right, filter_freq = 150
         error("No valid fixations found in the data.")
     end
     
-    N = nrow(valid_fix)
-    println("Calculating PSD and SEM across $N valid fixations...")
+    println("Calculating PSD and SEM across $(nrow(valid_fix)) valid fixations...")
     
     psd_x_list = Vector{Float64}[]
     psd_y_list = Vector{Float64}[]
     freqs = Float64[]
+    skipped_short = 0
     
     for row in eachrow(valid_fix)
-        eye_right = row.right 
-        eye_left = row.left
+        eye_data = getproperty(row, eye)
+        n_samples = size(eye_data.data, 1)
+        if n_samples < welch_window
+            skipped_short += 1
+            continue
+        end
         
-        x_pos = eye_right.data[:, 1]# + eye_left.data[:, 1]  # Combine both eyes' x positions
-        y_pos = eye_right.data[:, 2]# + eye_left.data[:, 2]  # Combine both eyes' y positions
+        x_pos = eye_data.data[:, 1]
+        y_pos = eye_data.data[:, 2]
 
-        x_pos_filtered = filtfilt(lpf, x_pos)[200:end-100]
-        y_pos_filtered = filtfilt(lpf, y_pos)[200:end-100]
+        x_pos_filtered = filtfilt(lpf, x_pos)
+        y_pos_filtered = filtfilt(lpf, y_pos)
 
         x_vel = gradient(x_pos_filtered, 1/fs)
         y_vel = gradient(y_pos_filtered, 1/fs)
@@ -57,17 +76,41 @@ function plot_fixation_psd(df::DataFrame; fs=1000, eye=:right, filter_freq = 150
         x_centered = x_vel .- mean(x_vel)
         y_centered = y_vel .- mean(y_vel)
         
-        px = periodogram(x_centered, fs=fs, window=hanning)
-        py = periodogram(y_centered, fs=fs, window=hanning)
+        px = welch_pgram(
+            x_centered,
+            welch_window,
+            welch_overlap;
+            nfft=nfft,
+            fs=fs,
+            window=hanning,
+        )
+        py = welch_pgram(
+            y_centered,
+            welch_window,
+            welch_overlap;
+            nfft=nfft,
+            fs=fs,
+            window=hanning,
+        )
         
         if isempty(freqs)
             freqs = px.freq
+        elseif px.freq != freqs
+            error("Welch frequency grid changed between fixations.")
         end
         
         push!(psd_x_list, px.power)
         push!(psd_y_list, py.power)
     end
     
+    if isempty(psd_x_list)
+        error("No valid fixation is at least welch_window samples long.")
+    end
+    skipped_short > 0 &&
+        println("Skipped $skipped_short valid fixations shorter than welch_window=$welch_window.")
+
+    N = length(psd_x_list)
+
     # 4. Matrix Conversion & Error Calculation
     psd_x_mat = reduce(hcat, psd_x_list)
     psd_y_mat = reduce(hcat, psd_y_list)
@@ -103,38 +146,49 @@ function plot_fixation_psd(df::DataFrame; fs=1000, eye=:right, filter_freq = 150
     peak_freq_y = f_plot[peak_idx_y]
 
     peak_freq = (peak_freq_x + peak_freq_y) / 2
-    
+
+    power_peak = 1.2*maximum(vcat(px_plot, py_plot))
+    y_scale = 1e3
+    y_tick_formatter = y -> @sprintf("%.2g", y / y_scale)
+
     # 6. Plotting
     p = plot(f_plot, px_plot, 
         ribbon=px_ribbon,
         fillalpha=0.3,
-        label="X-Velocity",
-        # xscale=:log10, 
-        # yscale=:log10, 
-        xlims=(0, 200),
-        linewidth=2,
-        color=:blue,
+        label="X-velocity",
+        color="#0072B2",
+        xlims=(0, 250),
+        ylims=(0, power_peak),
+        linewidth=4,
         xlabel="Frequency (Hz)", 
-        ylabel="Velocity PSD ((px/s)²/Hz)", 
+        ylabel="Velocity PSD (10³ (px/s)²/Hz)", 
         title="Power Spectrum with 95% CI \n$N fixations, binocular average",
-        grid=true,
-        minorticks=true,
-        legend=:topright)
+        size=(1000, 650), 
+        titlefontsize=24, guidefontsize=18, tickfontsize=20,
+        legendfontsize=20, framestyle=:box, legend=:topright, margin=14Plots.mm,
+        grid=true, minorticks=true, yformatter=y_tick_formatter)
+
+    Plots.xticks!(0:50:250)
+    # Plots.yticks!(0:50:power_peak)
+
+
         
     plot!(p, f_plot, py_plot, 
         ribbon=py_ribbon,
         fillalpha=0.3,
-        label="Y-Velocity", 
-        linewidth=2, 
-        color=:darkorange)
+        label="Y-velocity", 
+        linewidth=4, 
+        color="#D55E00")
 
-    vline!(p, [peak_freq], color=:black, linestyle=:dash, linewidth=3, label="Peak: $(round(peak_freq, digits=2)) Hz")
-        
+    # annotate!([(250.0, plot_max_psd,
+    #     text("×10^$y_exponent", :black, 20, :right))])
+
+    vline!(p, [peak_freq], color=:black, linestyle=:dash, linewidth=3, label="Peak Frequency: $(round(peak_freq, digits=2)) Hz")
     return p
 end
 
 # === Execution Pipeline ===
-df_fixations = load_data(THRESHOLD=1.0, BUFFER=0.01, max_speed=3., fs_file=1000)
+df_fixations = load_data(THRESHOLD=0.5, BUFFER=0.05, max_speed=10, fs_file=1000)
 psd_plot = plot_fixation_psd(df_fixations, fs=1000, eye=:right)
 display(psd_plot)
 
