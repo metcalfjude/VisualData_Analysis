@@ -7,7 +7,7 @@ using TimeseriesTools
 using DrWatson
 using JLD2
 
-@quickactivate "FractionalSaccades"
+@quickactivate "VisualData_Analysis"
 
 folder = datadir("raw", "hexgrid")
 outfolder = datadir("native", "hexgrid")

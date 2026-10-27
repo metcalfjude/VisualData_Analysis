@@ -1,5 +1,5 @@
 using DrWatson
-@quickactivate :FractionalSaccades
+@quickactivate :VisualData_Analysis
 
 using KernelDensity
 using DSP
@@ -11,7 +11,7 @@ using HDF5
 using CSV
 using DataFrames
 using Polynomials
-FractionalSaccades.@preamble
+VisualData_Analysis.@preamble
 
 file = jldopen(datadir("native", "hexgrid", "gaze.jld2"), "r")
 index = file["index"]

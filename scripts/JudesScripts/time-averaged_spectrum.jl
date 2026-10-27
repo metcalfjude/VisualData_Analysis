@@ -1,5 +1,5 @@
 using DrWatson
-@quickactivate :FractionalSaccades
+@quickactivate :VisualData_Analysis
 
 using Base.Threads
 using Statistics

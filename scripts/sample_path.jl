@@ -1,8 +1,8 @@
-using FractionalSaccades
+using VisualData_Analysis
 using KernelDensity
 using Autocorrelations
 import TimeseriesTools.msdist
-FractionalSaccades.@preamble
+VisualData_Analysis.@preamble
 using Foresight
 set_theme!(foresight(:physics))
 

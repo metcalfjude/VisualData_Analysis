@@ -1,7 +1,7 @@
-module FractionalSaccades
+module VisualData_Analysis
 
 using DrWatson
-@quickactivate "FractionalSaccades"
+@quickactivate "VisualData_Analysis"
 
 if !haskey(ENV, "DRWATSON_STOREPATCH")
     ENV["DRWATSON_STOREPATCH"] = "true"

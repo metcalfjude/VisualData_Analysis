@@ -12,8 +12,8 @@ using Term
 using StatsBase
 using TimeseriesTools
 using Foresight
-@quickactivate "FractionalSaccades"
-import FractionalSaccades as FS
+@quickactivate "VisualData_Analysis"
+import VisualData_Analysis as FS
 set_theme!(foresight(:physics, :serif))
 
 begin

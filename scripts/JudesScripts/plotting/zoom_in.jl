@@ -1,5 +1,5 @@
 using DrWatson
-@quickactivate :FractionalSaccades
+@quickactivate :VisualData_Analysis
 
 include(scriptsdir("JudesScripts/total_search/load_search_data.jl"))
 

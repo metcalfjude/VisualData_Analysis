@@ -1,6 +1,6 @@
-using FractionalSaccades
+using VisualData_Analysis
 using KernelDensity
-FractionalSaccades.@preamble
+VisualData_Analysis.@preamble
 
 file = jldopen(datadir("native", "hexgrid", "gaze.jld2"), "r")
 index = file["index"]

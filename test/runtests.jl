@@ -1,6 +1,6 @@
-using FractionalSaccades
+using VisualData_Analysis
 using Test
 
-@testset "FractionalSaccades.jl" begin
+@testset "VisualData_Analysis.jl" begin
     # Write your tests here.
 end
